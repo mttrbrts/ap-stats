@@ -645,21 +645,6 @@ def make_slide_8(report):
   }});
 }})();
 </script>
-<div class="stat-footnote" style="margin-top:0.6rem">
-  <strong style="color:{COLORS['text']}">May 2026 peak — merged contributions:</strong>
-  &nbsp;
-  <a href="https://github.com/accordproject/cicero-template-library/pull/512" style="color:{COLORS['blue']}">cicero-template-library#512</a> (+73k/−2k @mttrbrts)
-  &nbsp;·&nbsp;
-  <a href="https://github.com/accordproject/cicero-template-library/pull/484" style="color:{COLORS['blue']}">#484</a> (+42k/−23k @mttrbrts)
-  &nbsp;·&nbsp;
-  <a href="https://github.com/accordproject/web-components/pull/449" style="color:{COLORS['blue']}">web-components#449</a> (+32k/−9k @soniaduma)
-  &nbsp;·&nbsp;
-  <a href="https://github.com/accordproject/markdown-transform/pull/675" style="color:{COLORS['blue']}">markdown-transform#675</a> (−31k @muhabdulkadir)
-  &nbsp;·&nbsp;
-  <a href="https://github.com/accordproject/concerto/pull/1230" style="color:{COLORS['blue']}">concerto#1230</a> (+14k/−11k @muhabdulkadir)
-  &nbsp;·&nbsp;
-  <span style="color:{COLORS['muted']}">Note: counts merged PRs only — closed dependabot lock-file PRs (~3.9M LOC in web-components) are excluded.</span>
-</div>
 """
     return slide_wrapper(8, "Lines Changed per Month", "Merged PRs only · additions · deletions · net · current vs prior year", content)
 
@@ -887,6 +872,13 @@ def generate_narrative(report):
     rel_cur = sum(r["total"] for r in q11.get("current", []))
     rel_pri = sum(r["total"] for r in q11.get("prior",   []))
 
+    # May LOC (merged PRs only)
+    q8 = report.get("q8_lines_changed", {})
+    q8_cur = q8.get("current", []) if isinstance(q8, dict) else q8
+    may_row = next((r for r in q8_cur if r.get("month", "").endswith("-05")), {})
+    may_add = may_row.get("additions", 0)
+    may_del = may_row.get("deletions", 0)
+
     def hrs(h):
         if h >= 24:
             return f"{h/24:.1f}d"
@@ -929,12 +921,9 @@ def generate_narrative(report):
             f"which also reduces the manual triage burden."
         ),
         (
-            f"Coding activity spikes in May 2026 as GSoC coding period begins",
-            f"GSoC {GSOC['year']} coding officially started {GSOC['coding_start']}. May 2026 already shows "
-            f"the largest single-month code volume in the window, with additions and deletions both at multi-million "
-            f"line scale — consistent with contributors landing substantial feature work in the opening weeks of "
-            f"the coding period. Release cadence remained steady at {rel_cur} releases "
-            f"(vs {rel_pri} prior year), indicating the core team maintained shipping discipline throughout."
+            f"May 2026 code volume reflects real GSoC work — not lock-file noise",
+            f"GSoC {GSOC['year']} coding officially started {GSOC['coding_start']}. "
+            f"Release cadence remained steady at {rel_cur} releases (vs {rel_pri} prior year)."
         ),
     ]
 
@@ -1175,6 +1164,45 @@ html, body {
   z-index: 50;
   cursor: e-resize;
 }
+/* Nav buttons */
+#nav-prev, #nav-next {
+  position: fixed;
+  bottom: 1.4rem;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(22,27,34,0.85);
+  border: 1px solid rgba(139,148,158,0.25);
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  color: #8b949e;
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s, border-color 0.15s;
+}
+#nav-prev { left: 1.5rem; }
+#nav-next { left: 50%; transform: translateX(-50%); }
+#nav-prev:hover, #nav-next:hover {
+  color: #e6edf3;
+  border-color: rgba(88,166,255,0.5);
+}
+#nav-prev:active, #nav-next:active { opacity: 0.7; }
+.nav-arrow { font-size: 1rem; }
+.nav-key {
+  font-size: 0.72rem;
+  background: rgba(139,148,158,0.15);
+  border: 1px solid rgba(139,148,158,0.3);
+  border-radius: 3px;
+  padding: 0.05rem 0.3rem;
+  font-family: monospace;
+  color: #8b949e;
+}
+#nav-prev[disabled], #nav-next[disabled] {
+  opacity: 0.3;
+  pointer-events: none;
+}
 """
 
 NAV_JS = """
@@ -1189,6 +1217,8 @@ function goTo(n) {
   slides[cur].classList.add('active');
   document.getElementById('hud-counter').textContent = (cur + 1) + ' / ' + TOTAL;
   document.getElementById('hud-progress').style.width = ((cur + 1) / TOTAL * 100) + '%';
+  document.getElementById('nav-prev').disabled = (cur === 0);
+  document.getElementById('nav-next').disabled = (cur === TOTAL - 1);
 }
 
 goTo(0);
@@ -1258,6 +1288,14 @@ def build_html(report, chartjs_inline):
 <!-- Click zones -->
 <div id="zone-back"></div>
 <div id="zone-fwd"></div>
+
+<!-- Nav buttons -->
+<button id="nav-prev" onclick="goTo(cur-1)" disabled>
+  <span class="nav-arrow">&#8592;</span> Prev <span class="nav-key">&#8592;</span>
+</button>
+<button id="nav-next" onclick="goTo(cur+1)">
+  Next <span class="nav-arrow">&#8594;</span> <span class="nav-key">&#8594;</span><span class="nav-key">Space</span>
+</button>
 
 <!-- Slides -->
 {slides_html}
