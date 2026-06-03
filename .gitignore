@@ -1,0 +1,10 @@
+data/repos.json
+data/prs/
+data/releases/
+data/code_frequency/
+output/
+analyze/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.DS_Store
