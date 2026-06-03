@@ -103,7 +103,7 @@ for REPO in "${REPOS[@]}"; do
 
   echo "Fetching PRs for ${REPO} …"
 
-  ALL_PRS="[]"
+  TMP_DIR=$(mktemp -d)
   CURSOR="null"
   PAGE=0
 
@@ -129,20 +129,18 @@ for REPO in "${REPOS[@]}"; do
     # Extract rate limit remaining
     RATE_REMAINING=$(echo "$RESPONSE" | jq -r '.data.rateLimit.remaining // "unknown"')
 
-    # Extract PR nodes
-    NODES=$(echo "$RESPONSE" | jq '.data.repository.pullRequests.nodes // []')
-    NODE_COUNT=$(echo "$NODES" | jq 'length')
+    # Extract PR nodes — write to a temp file to avoid argv size limits
+    echo "$RESPONSE" | jq '.data.repository.pullRequests.nodes // []' > "${TMP_DIR}/page_${PAGE}.json"
+    NODE_COUNT=$(jq 'length' "${TMP_DIR}/page_${PAGE}.json")
 
     if [[ "$NODE_COUNT" -eq 0 ]]; then
       echo "  Page ${PAGE}: 0 PRs — done"
+      rm "${TMP_DIR}/page_${PAGE}.json"
       break
     fi
 
-    # Accumulate
-    ALL_PRS=$(jq -n --argjson acc "$ALL_PRS" --argjson page "$NODES" '$acc + $page')
-
     # Check oldest PR on this page vs CUTOFF
-    OLDEST_DATE=$(echo "$NODES" | jq -r '.[-1].createdAt // "1970-01-01T00:00:00Z"')
+    OLDEST_DATE=$(jq -r '.[-1].createdAt // "1970-01-01T00:00:00Z"' "${TMP_DIR}/page_${PAGE}.json")
 
     echo "  Page ${PAGE}: ${NODE_COUNT} PRs (oldest: ${OLDEST_DATE}) | rate limit remaining: ${RATE_REMAINING}"
 
@@ -163,9 +161,14 @@ for REPO in "${REPOS[@]}"; do
     CURSOR="$END_CURSOR"
   done
 
-  # Write result (may be empty array if repo has no PRs or failed)
-  echo "$ALL_PRS" > "$OUT"
-  echo "  Wrote $(echo "$ALL_PRS" | jq 'length') PRs to ${OUT}"
+  # Merge all page files into the output (reads from files, not argv — no size limit)
+  if compgen -G "${TMP_DIR}/page_*.json" > /dev/null 2>&1; then
+    jq -s 'add // []' "${TMP_DIR}"/page_*.json > "$OUT"
+  else
+    echo "[]" > "$OUT"
+  fi
+  rm -rf "$TMP_DIR"
+  echo "  Wrote $(jq 'length' "$OUT") PRs to ${OUT}"
 done
 
 echo "Done."
