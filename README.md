@@ -1,4 +1,4 @@
-# ap-stats
+# ap-stats [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 Weekly GitHub activity report for the [Accord Project](https://github.com/accordproject) organisation, published automatically to GitHub Pages.
 
